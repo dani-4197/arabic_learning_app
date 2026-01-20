@@ -1,34 +1,31 @@
 import sqlite3
 from datetime import datetime
-import os
+from typing import Optional, List, Tuple, Dict, Any
 
 class DatabaseManager:
     """
-    Manages all database operations with comprehensive exception handling
-    Implements connection pooling and transaction management
+    Manages all database operations
     """
     
     def __init__(self, db_path='database/arabic_learning.db'):
-        self.db_path = db_path
-        # Create database directory if it doesn't exist
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        self.create_tables()
-        self.create_indexes()
-    
-    def get_connection(self):
         """
-        Returns a new database connection
-        Enables foreign key constraints for referential integrity
+        Initialize database manager and create tables if they don't exist
+        """
+        self.db_path = db_path
+        self.create_tables()
+    
+    def get_connection(self) -> sqlite3.Connection:
+        """
+        Create and return a database connection with foreign keys enabled.
         """
         conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row  # Access columns by name
-        conn.execute("PRAGMA foreign_keys = ON")  # Enable foreign keys
+        conn.execute("PRAGMA foreign_keys = ON")  # This enables foreign key constraints
         return conn
     
     def create_tables(self):
         """
-        Creates all database tables
-        Demonstrates understanding of relational database design
+        Creates all necessary tables with proper foreign key constraints
+        Uses defensive programming to handle existing tables
         """
         try:
             conn = self.get_connection()
@@ -38,10 +35,10 @@ class DatabaseManager:
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS UserAccount (
                     UserID INTEGER PRIMARY KEY AUTOINCREMENT,
-                    Username TEXT UNIQUE NOT NULL CHECK(length(Username) >= 4),
+                    Username TEXT UNIQUE NOT NULL,
                     PasswordHash TEXT NOT NULL,
                     Salt TEXT NOT NULL,
-                    CreatedDate DATETIME DEFAULT CURRENT_TIMESTAMP
+                    CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
             
@@ -49,11 +46,11 @@ class DatabaseManager:
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS User (
                     UserID INTEGER PRIMARY KEY,
-                    DailyCardGoal INTEGER DEFAULT 20 CHECK(DailyCardGoal BETWEEN 5 AND 100),
+                    DailyCardGoal INTEGER DEFAULT 20 CHECK(DailyCardGoal BETWEEN 5 AND 50),
                     NotificationTime TEXT DEFAULT '18:00',
                     CurrentStreak INTEGER DEFAULT 0,
-                    LongestStreak INTEGER DEFAULT 0,
                     TotalPoints INTEGER DEFAULT 0,
+                    LongestStreak INTEGER DEFAULT 0,
                     FOREIGN KEY (UserID) REFERENCES UserAccount(UserID) ON DELETE CASCADE
                 )
             ''')
@@ -64,25 +61,24 @@ class DatabaseManager:
                     WordID INTEGER PRIMARY KEY AUTOINCREMENT,
                     ArabicTerm TEXT UNIQUE NOT NULL,
                     EnglishTranslation TEXT NOT NULL,
-                    Category TEXT NOT NULL,
-                    ExampleSentence TEXT,
-                    DifficultyLevel INTEGER DEFAULT 1 CHECK(DifficultyLevel BETWEEN 1 AND 5)
+                    Category TEXT NOT NULL CHECK(Category IN ('General Nouns', 'Verbs', 'Adjectives', 
+                                                               'Quranic', 'Daily Life', 'Numbers')),
+                    ExampleSentence TEXT
                 )
             ''')
             
-            # FlashcardSet table - user-created sets
+            # FlashcardSet table - user-created or system sets
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS FlashcardSet (
                     SetID INTEGER PRIMARY KEY AUTOINCREMENT,
                     UserID INTEGER,
                     SetName TEXT NOT NULL,
                     CreationDate DATE DEFAULT CURRENT_DATE,
-                    Description TEXT,
                     FOREIGN KEY (UserID) REFERENCES User(UserID) ON DELETE CASCADE
                 )
             ''')
             
-            # Flashcard table - junction table + SRS progress
+            # Flashcard table - junction table with SRS progress
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS Flashcard (
                     CardID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,7 +90,7 @@ class DatabaseManager:
                     WeightedScore REAL DEFAULT 0.0,
                     TotalReviews INTEGER DEFAULT 0,
                     IsMastered BOOLEAN DEFAULT 0,
-                    LastReviewedDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    LastReviewed DATETIME,
                     FOREIGN KEY (UserID) REFERENCES User(UserID) ON DELETE CASCADE,
                     FOREIGN KEY (WordID) REFERENCES VocabularyWord(WordID) ON DELETE CASCADE,
                     FOREIGN KEY (SetID) REFERENCES FlashcardSet(SetID) ON DELETE CASCADE,
@@ -102,51 +98,20 @@ class DatabaseManager:
                 )
             ''')
             
-            # QuizSession table
+            # Create indexes for performance optimization
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS QuizSession (
-                    SessionID INTEGER PRIMARY KEY AUTOINCREMENT,
-                    UserID INTEGER NOT NULL,
-                    SetID INTEGER NOT NULL,
-                    StartTime DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    EndTime DATETIME,
-                    TotalQuestions INTEGER DEFAULT 0,
-                    Score INTEGER DEFAULT 0,
-                    FOREIGN KEY (UserID) REFERENCES User(UserID) ON DELETE CASCADE,
-                    FOREIGN KEY (SetID) REFERENCES FlashcardSet(SetID) ON DELETE CASCADE
-                )
+                CREATE INDEX IF NOT EXISTS idx_flashcard_user_review
+                ON Flashcard(UserID, NextReviewDate)
             ''')
             
-            # QuizSessionAttempt table
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS QuizSessionAttempt (
-                    AttemptID INTEGER PRIMARY KEY AUTOINCREMENT,
-                    SessionID INTEGER NOT NULL,
-                    WordID INTEGER NOT NULL,
-                    UserAnswer TEXT,
-                    IsCorrect BOOLEAN NOT NULL,
-                    TimeTakenSec REAL DEFAULT 0.0,
-                    FOREIGN KEY (SessionID) REFERENCES QuizSession(SessionID) ON DELETE CASCADE,
-                    FOREIGN KEY (WordID) REFERENCES VocabularyWord(WordID) ON DELETE CASCADE
-                )
+                CREATE INDEX IF NOT EXISTS idx_flashcard_set_word
+                ON Flashcard(SetID, WordID)
             ''')
             
-            # Leaderboard table
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS Leaderboard (
-                    LeaderboardID INTEGER PRIMARY KEY AUTOINCREMENT,
-                    UserID INTEGER UNIQUE NOT NULL,
-                    TotalPoints INTEGER DEFAULT 0,
-                    CurrentStreak INTEGER DEFAULT 0,
-                    LongestStreak INTEGER DEFAULT 0,
-                    WordsMastered INTEGER DEFAULT 0,
-                    TotalReviews INTEGER DEFAULT 0,
-                    QuizzesCompleted INTEGER DEFAULT 0,
-                    AverageQuizScore REAL DEFAULT 0.0,
-                    LastUpdated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    Rank INTEGER,
-                    FOREIGN KEY (UserID) REFERENCES User(UserID) ON DELETE CASCADE
-                )
+                CREATE INDEX IF NOT EXISTS idx_vocab_category
+                ON VocabularyWord(Category)
             ''')
             
             conn.commit()
@@ -158,13 +123,55 @@ class DatabaseManager:
         finally:
             conn.close()
     
-    def create_indexes(self):
+    def execute_query(self, query: str, params: tuple = ()) -> Optional[List[Tuple]]:
         """
-        Creates indexes for frequently queried columns
-        Improves query performance from O(n) to O(log n)
+        Execute a SELECT query and return results.
         """
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
-            
-            # Index for finding due cards (most frequent query
+            cursor.execute(query, params)
+            results = cursor.fetchall()
+            return results
+        except sqlite3.Error as e:
+            print(f"Query execution error: {e}")
+            return None
+        finally:
+            conn.close()
+    
+    def execute_update(self, query: str, params: tuple = ()) -> bool:
+        """
+        Execute an INSERT, UPDATE, or DELETE query.
+        """
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Update execution error: {e}")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()
+    
+    def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve user account information by username.
+        """
+        query = '''
+            SELECT UserID, Username, PasswordHash, Salt
+            FROM UserAccount
+            WHERE Username = ?
+        '''
+        results = self.execute_query(query, (username,))
+        
+        if results and len(results) > 0:
+            return {
+                'user_id': results[0][0],
+                'username': results[0][1],
+                'password_hash': results[0][2],
+                'salt': results[0][3]
+            }
+        return None
