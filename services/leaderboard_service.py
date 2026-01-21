@@ -6,39 +6,30 @@ class LeaderboardSorter:
     
     def mergesort_leaderboard(self, users, sort_key="total_points"):
         """
-        Recursive mergesort implementation
-        
+        Recursive mergesort implementation      
         Time complexity: O(n log n)
         Space complexity: O(n)
-        
-        Args:
-            users: List of user dictionaries
-            sort_key: Field to sort by (default: total_points)
-        
-        Returns:
-            Sorted list in descending order
         """
         # Base case: lists of 0 or 1 element are already sorted
         if len(users) <= 1:
             return users
         
-        # Divide: split list in half
+        # Split list in half
         mid = len(users) // 2
         left_half = users[:mid]
         right_half = users[mid:]
         
-        # Conquer: recursively sort both halves
+        # Recursively sort both halves
         left_sorted = self.mergesort_leaderboard(left_half, sort_key)
         right_sorted = self.mergesort_leaderboard(right_half, sort_key)
         
-        # Combine: merge sorted halves
+        # Merge sorted halves
         return self._merge(left_sorted, right_sorted, sort_key)
     
     def _merge(self, left, right, sort_key):
         """
         Merges two sorted lists into one sorted list
-        
-        Time complexity: O(n) where n = len(left) + len(right)
+        Time complexity: O(len(left) + len(right))
         """
         result = []
         i = j = 0
@@ -60,11 +51,7 @@ class LeaderboardSorter:
         return result
     
     def sort_by_multiple_criteria(self, users):
-        """
-        Multi-key sort: Primary by points, secondary by streak
-        
-        Demonstrates advanced algorithm design
-        """
+        # Multi-key sort: Primary by points, secondary by streak
         if len(users) <= 1:
             return users
         
@@ -75,9 +62,7 @@ class LeaderboardSorter:
         return self._merge_multi_key(left, right)
     
     def _merge_multi_key(self, left, right):
-        """
-        Merges with tie-breaking on secondary criteria
-        """
+        # Merges with tie-breaking
         result = []
         i = j = 0
         
