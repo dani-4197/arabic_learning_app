@@ -4,7 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import os
 
-# Import program's custom modules
+# Import my custom modules
 from database.db_manager import DatabaseManager
 from models.user import User
 from models.flashcard import Flashcard
@@ -33,7 +33,7 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 class UserLogin:
-    """Wrapper class for Flask-Login compatibility"""
+    # Wrapper class for Flask-Login compatibility
     def __init__(self, user):
         self.user = user
     
@@ -51,7 +51,7 @@ class UserLogin:
 
 @login_manager.user_loader
 def load_user(user_id):
-    """Load user for Flask-Login"""
+    # Load user for Flask-Login
     try:
         conn = db_manager.get_connection()
         cursor = conn.cursor()
@@ -75,7 +75,7 @@ def load_user(user_id):
 
 @app.route('/')
 def index():
-    """Home page - redirects to dashboard if logged in, otherwise to login"""
+    # Home page - redirects to dashboard if logged in, otherwise to login
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
@@ -83,8 +83,7 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """
-    User login page and handler.
-    
+    User login page and handler
     GET: Display login form
     POST: Process login credentials
     """
@@ -119,8 +118,7 @@ def login():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     """
-    User registration page and handler.
-    
+    User registration page and handler
     GET: Display registration form
     POST: Process new user registration
     """
@@ -348,6 +346,9 @@ def initialize_sample_data():
             ('جميل', 'beautiful', 'Adjectives'),
             ('البصير', 'the All-Seeing', 'Quranic'),
             ('السميع', 'the All-Hearing', 'Quranic'),
+            ('العليم', 'the All-Knowing', 'Quranic'),
+            ('الخالق', 'the Creator', 'Quranic'),
+            ('رب', 'Lord', 'Quranic')
         ]
         
         cursor.executemany('''
