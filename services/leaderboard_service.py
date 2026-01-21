@@ -1,8 +1,5 @@
 class LeaderboardSorter:
-    """
-    Implements Mergesort (O(n log n)) for leaderboard sorting
-    More efficient than bubble/insertion sort (O(n²))
-    """
+    # Implements Mergesort (O(n log n)) for leaderboard sorting
     
     def mergesort_leaderboard(self, users, sort_key="total_points"):
         """
