@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Review - Arabic Learning App{% endblock %}
+
+{% block content %}
+<div class="review-container">
+    <div class="review-header">
+        <h1>Review Session</h1>
+        <div class="review-progress">
+            <span id="current-card">1</span> / <span id="total-cards">{{ cards|length }}</span>
+        </div>
+    </div>
+
+    <div class="flashcard-area">
+        <div class="flashcard" id="flashcard">
+            <div class="flashcard-front">
+                <div class="arabic-text" id="arabic-text">
+                    {{ cards[0].arabic_term }}
+                </div>
+                <button class="btn btn-secondary" onclick="flipCard()">Show Answer</button>
+            </div>
+            
+            <div class="flashcard-back" style="display: none;">
+                <div class="arabic-text" id="arabic-text-back">
+                    {{ cards[0].arabic_term }}
+                </div>
+                <div class="english-text" id="english-text">
+                    {{ cards[0].english_translation }}
+                </div>
+                
+                <div class="rating-section">
+                    <p class="rating-prompt">How well did you know this?</p>
+                    <div class="rating-buttons">
+                        <button class="btn-rating btn-forgot" onclick="rateCard(1)">
+                            <span class="rating-emoji">😞</span>
+                            <span class="rating-label">Forgot</span>
+                        </button>
+                        <button class="btn-rating btn-struggled" onclick="rateCard(2)">
+                            <span class="rating-emoji">😐</span>
+                            <span class="rating-label">Struggled</span>
+                        </button>
+                        <button class="btn-rating btn-good" onclick="rateCard(3)">
+                            <span class="rating-emoji">😊</span>
+                            <span class="rating-label">Good</span>
+                        </button>
+                        <button class="btn-rating btn-perfect" onclick="rateCard(4)">
+                            <span class="rating-emoji">🎉</span>
+                            <span class="rating-label">Perfect</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="review-stats">
+        <div class="stat-item">
+            <span class="stat-label">Points Earned:</span>
+            <span class="stat-value" id="points-earned">0</span>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden data for JavaScript -->
+<script id="cards-data" type="application/json">
+{{ cards | tojson }}
+</script>
+
+<script>
+let cards = JSON.parse(document.getElementById('cards-data').textContent);
+let currentIndex = 0;
+let totalPoints = 0;
+let isFlipped = false;
+
+function updateCard() {
+    if (currentIndex >= cards.length) {
+        // Session complete
+        showCompletionMessage();
+        return;
+    }
+    
+    const card = cards[currentIndex];
+    document.getElementById('arabic-text').textContent = card.arabic_term;
+    document.getElementById('arabic-text-back').textContent = card.arabic_term;
+    document.getElementById('english-text').textContent = card.english_translation;
+    document.getElementById('current-card').textContent = currentIndex + 1;
+    
+    // Reset to front
+    document.querySelector('.flashcard-front').style.display = 'block';
+    document.querySelector('.flashcard-back').style.display = 'none';
+    isFlipped = false;
+}
+
+function flipCard() {
+    document.querySelector('.flashcard-front').style.display = 'none';
+    document.querySelector('.flashcard-back').style.display = 'block';
+    isFlipped = true;
+}
+
+async function rateCard(score) {
+    if (!isFlipped) {
+        alert('Please reveal the answer first!');
+        return;
+    }
+    
+    const card = cards[currentIndex];
+    
+    try {
+        const response = await fetch('/api/review_card', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                card_id: card.card_id,
+                score: score
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            totalPoints += result.points_earned;
+            document.getElementById('points-earned').textContent = totalPoints;
+            
+            // Move to next card
+            currentIndex++;
+            updateCard();
+        } else {
+            alert('Error updating card: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Network error occurred');
+    }
+}
+
+function showCompletionMessage() {
+    const flashcardArea = document.querySelector('.flashcard-area');
+    flashcardArea.innerHTML = `
+        <div class="completion-message">
+            <h2>🎉 Session Complete!</h2>
+            <p>You earned <strong>${totalPoints}</strong> points</p>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
+        </div>
+    `;
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    if (isFlipped) {
+        switch(e.key) {
+            case '1':
+                rateCard(1);
+                break;
+            case '2':
+                rateCard(2);
+                break;
+            case '3':
+                rateCard(3);
+                break;
+            case '4':
+                rateCard(4);
+                break;
+        }
+    } else if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        flipCard();
+    }
+});
+</script>
+{% endblock %}
