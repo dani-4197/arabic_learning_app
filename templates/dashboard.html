@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Arabic Learning App{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>Welcome back, {{ current_user.user.username }}!</h1>
+        <p class="subtitle">Keep up your {{ stats.current_streak }} day streak! 🔥</p>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">📚</div>
+            <div class="stat-content">
+                <h3>{{ stats.cards_due }}</h3>
+                <p>Cards Due Today</p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-content">
+                <h3>{{ stats.mastered_cards }}</h3>
+                <p>Mastered Cards</p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-content">
+                <h3>{{ stats.average_recall }}%</h3>
+                <p>Recall Rate</p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-content">
+                <h3>{{ stats.total_points }}</h3>
+                <p>Total Points</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-section">
+        {% if stats.cards_due > 0 %}
+        <a href="{{ url_for('review') }}" class="btn btn-primary btn-large">
+            Start Review Session
+        </a>
+        {% else %}
+        <button class="btn btn-large" disabled>
+            No Cards Due Today ✓
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Progress Section -->
+    <div class="progress-section">
+        <h2>Your Progress</h2>
+        
+        <!-- Box Distribution -->
+        <div class="box-distribution">
+            <h3>Leitner Box Distribution</h3>
+            <div class="box-chart">
+                {% for i in range(1, 6) %}
+                <div class="box-item">
+                    <div class="box-label">Box {{ i }}</div>
+                    <div class="box-bar-container">
+                        <div class="box-bar" style="width: {{ (stats.box_distribution.get('box_' ~ i, 0) / stats.total_cards * 100) if stats.total_cards > 0 else 0 }}%">
+                            <span class="box-count">{{ stats.box_distribution.get('box_' ~ i, 0) }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Weekly Forecast -->
+        <div class="forecast-section">
+            <h3>7-Day Forecast</h3>
+            <div class="forecast-grid">
+                {% for day in forecast %}
+                <div class="forecast-card {% if loop.index0 == 0 %}today{% endif %}">
+                    <div class="forecast-day">{{ day.day_name[:3] }}</div>
+                    <div class="forecast-cards">{{ day.cards_due }}</div>
+                    <div class="forecast-label">cards</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaderboard Preview -->
+    {% if rank %}
+    <div class="rank-section">
+        <h2>Your Rank</h2>
+        <div class="rank-card">
+            <div class="rank-position">#{{ rank.rank }}</div>
+            <div class="rank-details">
+                <p>out of {{ rank.total_users }} users</p>
+                <a href="{{ url_for('leaderboard') }}" class="btn btn-secondary">View Full Leaderboard</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
