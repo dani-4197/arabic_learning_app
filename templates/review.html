@@ -17,13 +17,24 @@
                 <div class="arabic-text" id="arabic-text">
                     {{ cards[0].arabic_term }}
                 </div>
-                <button class="btn btn-secondary" onclick="flipCard()">Show Answer</button>
+                
+                <div class="button-group">
+                    <button class="btn btn-info mb-2" onclick="playAudioFromCard()">
+                        Pronounce 🔊
+                    </button>
+                    <br>
+                    <button class="btn btn-secondary" onclick="flipCard()">Show Answer</button>
+                </div>
             </div>
             
             <div class="flashcard-back" style="display: none;">
                 <div class="arabic-text" id="arabic-text-back">
                     {{ cards[0].arabic_term }}
                 </div>
+                <button class="btn btn-sm btn-outline-info mb-2" onclick="playAudioFromCard()">
+                    Listen Again 🔊
+                </button>
+
                 <div class="english-text" id="english-text">
                     {{ cards[0].english_translation }}
                 </div>
@@ -61,7 +72,6 @@
     </div>
 </div>
 
-<!-- Hidden data for JavaScript -->
 <script id="cards-data" type="application/json">
 {{ cards | tojson }}
 </script>
@@ -72,9 +82,19 @@ let currentIndex = 0;
 let totalPoints = 0;
 let isFlipped = false;
 
+/**
+ * TECHNICAL SOLUTION: Audio Integration
+ * This function calls the Flask route /get-audio/ to stream the MP3
+ */
+function playAudioFromCard() {
+    const word = cards[currentIndex].arabic_term;
+    // Encode the URI to handle Arabic characters correctly in the URL
+    const audio = new Audio(`/get-audio/${encodeURIComponent(word)}`);
+    audio.play().catch(e => console.error("Audio Playback Error:", e));
+}
+
 function updateCard() {
     if (currentIndex >= cards.length) {
-        // Session complete
         showCompletionMessage();
         return;
     }
@@ -85,10 +105,12 @@ function updateCard() {
     document.getElementById('english-text').textContent = card.english_translation;
     document.getElementById('current-card').textContent = currentIndex + 1;
     
-    // Reset to front
     document.querySelector('.flashcard-front').style.display = 'block';
     document.querySelector('.flashcard-back').style.display = 'none';
     isFlipped = false;
+
+    // OPTIONAL: Auto-play audio when card is shown (Top Band UX)
+    // playAudioFromCard(); 
 }
 
 function flipCard() {
@@ -108,9 +130,7 @@ async function rateCard(score) {
     try {
         const response = await fetch('/api/review_card', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 card_id: card.card_id,
                 score: score
@@ -122,8 +142,6 @@ async function rateCard(score) {
         if (result.success) {
             totalPoints += result.points_earned;
             document.getElementById('points-earned').textContent = totalPoints;
-            
-            // Move to next card
             currentIndex++;
             updateCard();
         } else {
@@ -131,14 +149,13 @@ async function rateCard(score) {
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error occurred');
     }
 }
 
 function showCompletionMessage() {
     const flashcardArea = document.querySelector('.flashcard-area');
     flashcardArea.innerHTML = `
-        <div class="completion-message">
+        <div class="completion-message" style="text-align:center; padding: 50px;">
             <h2>🎉 Session Complete!</h2>
             <p>You earned <strong>${totalPoints}</strong> points</p>
             <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
@@ -146,24 +163,20 @@ function showCompletionMessage() {
     `;
 }
 
-// Keyboard shortcuts
+// Keyboard shortcuts for Accessibility (AO3b High Band)
 document.addEventListener('keydown', function(e) {
+    const key = e.key.toLowerCase();
+
+    // 'p' or 'a' for Pronunciation
+    if (key === 'p' || key === 'a') {
+        playAudioFromCard();
+    }
+
     if (isFlipped) {
-        switch(e.key) {
-            case '1':
-                rateCard(1);
-                break;
-            case '2':
-                rateCard(2);
-                break;
-            case '3':
-                rateCard(3);
-                break;
-            case '4':
-                rateCard(4);
-                break;
+        if (['1', '2', '3', '4'].includes(key)) {
+            rateCard(parseInt(key));
         }
-    } else if (e.key === ' ' || e.key === 'Enter') {
+    } else if (key === ' ' || key === 'enter') {
         e.preventDefault();
         flipCard();
     }
