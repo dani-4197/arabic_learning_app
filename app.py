@@ -15,7 +15,7 @@ from services.leaderboard_service import LeaderboardService
 
 # Initialize Flask app
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-change-this-in-production'
+app.config['SECRET_KEY'] = 'secret-key-change-this-in-production'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
 # Initialize database and services
@@ -313,10 +313,9 @@ def not_found(e):
 def server_error(e):
     return render_template('500.html'), 500
 
-
-def initialize_sample_data():
+def initialize_vocabulary_data():
     """
-    Initializes database with sample vocabulary data.
+    Loads vocabulary data from CSV file into database.
     Only runs if VocabularyWord table is empty.
     """
     try:
@@ -329,32 +328,41 @@ def initialize_sample_data():
             print("✓ Vocabulary data already exists")
             return
         
-        # Sample Arabic vocabulary
-        sample_vocab = [
-            ('كتاب', 'book', 'General Nouns'),
-            ('قلم', 'pen', 'General Nouns'),
-            ('مدرسة', 'school', 'General Nouns'),
-            ('بيت', 'house', 'General Nouns'),
-            ('ماء', 'water', 'General Nouns'),
-            ('طعام', 'food', 'General Nouns'),
-            ('يذهب', 'to go', 'Verbs'),
-            ('يأكل', 'to eat', 'Verbs'),
-            ('يشرب', 'to drink', 'Verbs'),
-            ('يكتب', 'to write', 'Verbs'),
-            ('كبير', 'big', 'Adjectives'),
-            ('صغير', 'small', 'Adjectives'),
-            ('جميل', 'beautiful', 'Adjectives'),
-            ('البصير', 'the All-Seeing', 'Quranic'),
-            ('السميع', 'the All-Hearing', 'Quranic'),
-            ('العليم', 'the All-Knowing', 'Quranic'),
-            ('الخالق', 'the Creator', 'Quranic'),
-            ('رب', 'Lord', 'Quranic')
-        ]
+        # Construct path to CSV file
+        csv_path = os.path.join('data', 'arabic_vocabulary.csv')
         
+        # Check if CSV file exists
+        if not os.path.exists(csv_path):
+            print(f"Warning: Vocabulary file not found at {csv_path}")
+            return
+        
+        # Read vocabulary from CSV
+        vocab_list = []
+        with open(csv_path, 'r', encoding='utf-8') as csv_file:
+            csv_reader = csv.DictReader(csv_file)
+            
+            for row in csv_reader:
+                # Validate that all required fields are present
+                if not row.get('arabic_term') or not row.get('english_translation') or not row.get('category'):
+                    print(f"Skipping invalid row: {row}")
+                    continue
+                
+                # Add to list with no whitespace
+                vocab_list.append((
+                    row['arabic_term'].strip(),
+                    row['english_translation'].strip(),
+                    row['category'].strip()
+                ))
+        
+        if not vocab_list:
+            print("✗ No valid vocabulary entries found in CSV file")
+            return
+        
+        # Insert vocabulary into database
         cursor.executemany('''
             INSERT INTO VocabularyWord (ArabicTerm, EnglishTranslation, Category)
             VALUES (?, ?, ?)
-        ''', sample_vocab)
+        ''', vocab_list)
         
         # Create a default "Basic Arabic" set
         cursor.execute('''
@@ -363,10 +371,18 @@ def initialize_sample_data():
         ''')
         
         conn.commit()
-        print(f"✓ Initialized {len(sample_vocab)} sample vocabulary words")
+        print(f"✓ Loaded {len(vocab_list)} vocabulary words from CSV")
         
+    except FileNotFoundError:
+        print(f"✗ Error: CSV file not found at {csv_path}")
+    except csv.Error as e:
+        print(f"✗ Error reading CSV file: {e}")
+        conn.rollback()
+    except sqlite3.IntegrityError as e:
+        print(f"✗ Database error (possible duplicate entries): {e}")
+        conn.rollback()
     except Exception as e:
-        print(f"Error initializing sample data: {e}")
+        print(f"✗ Unexpected error during vocabulary import: {e}")
         conn.rollback()
     finally:
         conn.close()
