@@ -133,12 +133,11 @@ arabic_term,english_translation,category
 قديم,old,Adjectives
 أيضا,too,"General Nouns"
 نفسه,same,"General Nouns"
-كل,all,"General Nouns"
+كل,all/every,"General Nouns"
 هناك,there,"General Nouns"
 عند عندما,when,"General Nouns"
 إلى أعلى,up,"General Nouns"
 استخدام,use,"General Nouns"
-الخاص بك,your,"General Nouns"
 طريقة,way,"General Nouns"
 حول,about,"General Nouns"
 كثير,many,"General Nouns"
@@ -808,4 +807,5 @@ arabic_term,english_translation,category
 "اثنا عشر",eleven,Numbers
 "اثنا عشر",twelve,Numbers
 يساوي,equals,Numbers
+
 
