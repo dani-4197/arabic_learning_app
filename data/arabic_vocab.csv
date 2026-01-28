@@ -3,6 +3,7 @@ arabic_term,english_translation,category
 أنا,I,"General Nouns"
 له,his,"General Nouns"
 أن,that,"General Nouns"
+هذه,this (fem),General Nouns
 هو,he,"General Nouns"
 كان,was,Verbs
 إلى,to,"General Nouns"
@@ -147,7 +148,7 @@ arabic_term,english_translation,category
 سوف,would,Verbs
 مثل,like,"General Nouns"
 هكذا,so,"General Nouns"
-هذه,these,"General Nouns"
+هؤلاء,these,General Nouns
 لها,her,"General Nouns"
 طويل,long,Adjectives
 جعل,make,Verbs
@@ -269,6 +270,9 @@ arabic_term,english_translation,category
 دائما,always,"General Nouns"
 موسيقى,music,"General Nouns"
 تلك,those,"General Nouns"
+الذي,he who,General Nouns
+التي,she who,General Nouns
+الذين,those who,General Nouns
 كلا,both,"General Nouns"
 مارك,mark,"General Nouns"
 غالبا,often,"General Nouns"
@@ -571,6 +575,16 @@ arabic_term,english_translation,category
 انتهى,finish,Verbs
 سعيد,happy,Adjectives
 أمل,hope,Verbs
+إله,god,Quranic
+الله,Allah,Quranic
+كلا,"never/certainly not",General Nouns
+لن,"will not, never",General Nouns
+لم,did not,General Nouns
+ما,not,General Nouns
+ليس,not,General Nouns
+غير,other than,General Nouns
+دون,besides,General Nouns
+نعم,yes,General Nouns
 زهرة,flower,Daily Life
 ملابس,clothe,Daily Life
 غريب,strange,Adjectives
@@ -588,7 +602,7 @@ arabic_term,english_translation,category
 أقل,least,Adjectives
 متاعب,trouble,"General Nouns"
 صيحة,shout,Verbs
-باستثناء,except,"General Nouns"
+إلا,except,"General Nouns"
 كتب,wrote,Verbs
 بذور,seed,Daily Life
 نغمة,tone,"General Nouns"
@@ -807,5 +821,106 @@ arabic_term,english_translation,category
 "اثنا عشر",eleven,Numbers
 "اثنا عشر",twelve,Numbers
 يساوي,equals,Numbers
+الرحمن,the Most Merciful,Quranic
+الرحيم,the Most Compassionate,Quranic
+الملك,the King,Quranic
+القدوس,the Holy,Quranic
+السلام,the Peace,Quranic
+المؤمن,the Believer,Quranic
+المهيمن,the Guardian,Quranic
+العزيز,the Almighty,Quranic
+الجبار,the Compeller,Quranic
+المتكبر,the Supreme,Quranic
+الخالق,the Creator,Quranic
+البارئ,the Evolver,Quranic
+المصور,the Fashioner,Quranic
+الغفار,the Forgiver,Quranic
+القهار,the Dominant,Quranic
+الوهاب,the Bestower,Quranic
+الرزاق,the Provider,Quranic
+الفتاح,the Opener,Quranic
+العليم,the All-Knowing,Quranic
+القابض,the Constrictor,Quranic
+الباسط,the Expander,Quranic
+الخافض,the Abaser,Quranic
+الرافع,the Exalter,Quranic
+المعز,the Honorer,Quranic
+المذل,the Humiliator,Quranic
+السميع,the All-Hearing,Quranic
+البصير,the All-Seeing,Quranic
+الحكم,the Judge,Quranic
+العدل,the Just,Quranic
+اللطيف,the Subtle,Quranic
+الخبير,the Aware,Quranic
+الحليم,the Forbearing,Quranic
+العظيم,the Magnificent,Quranic
+الغفور,the Forgiving,Quranic
+الشكور,the Appreciative,Quranic
+العلي,the Most High,Quranic
+الكبير,the Most Great,Quranic
+الحفيظ,the Preserver,Quranic
+المقيت,the Sustainer,Quranic
+الحسيب,the Reckoner,Quranic
+الجليل,the Majestic,Quranic
+الكريم,the Generous,Quranic
+الرقيب,the Watchful,Quranic
+المجيب,the Responsive,Quranic
+الواسع,the All-Encompassing,Quranic
+الحكيم,the Wise,Quranic
+الودود,the Loving,Quranic
+المجيد,the Glorious,Quranic
+الباعث,the Resurrector,Quranic
+الشهيد,the Witness,Quranic
+الحق,the Truth,Quranic
+الوكيل,the Trustee,Quranic
+القوي,the Strong,Quranic
+المتين,the Firm,Quranic
+الولي,the Protector,Quranic
+الحميد,the Praiseworthy,Quranic
+المحصي,the Reckoner,Quranic
+المبدئ,the Originator,Quranic
+المعيد,the Restorer,Quranic
+المحيي,the Giver of Life,Quranic
+المميت,the Bringer of Death,Quranic
+الحي,the Ever-Living,Quranic
+القيوم,the Sustainer,Quranic
+الواجد,the Finder,Quranic
+الماجد,the Noble,Quranic
+الواحد,the One,Quranic
+الأحد,the Unique,Quranic
+الصمد,the Eternal,Quranic
+القادر,the Able,Quranic
+المقتدر,the Powerful,Quranic
+المقدم,the Expediter,Quranic
+المؤخر,the Delayer,Quranic
+الأول,the First,Quranic
+الآخر,the Last,Quranic
+الظاهر,the Manifest,Quranic
+الباطن,the Hidden,Quranic
+الوالي,the Governor,Quranic
+المتعالي,the Most Exalted,Quranic
+البر,the Source of Goodness,Quranic
+التواب,the Acceptor of Repentance,Quranic
+المنتقم,the Avenger,Quranic
+العفو,the Pardoner,Quranic
+الرؤوف,the Kind,Quranic
+مالك الملك,Owner of Sovereignty,Quranic
+ذو الجلال والإكرام,Possessor of Glory and Honor,Quranic
+المقسط,the Equitable,Quranic
+الجامع,the Gatherer,Quranic
+الغني,the Self-Sufficient,Quranic
+المغني,the Enricher,Quranic
+المانع,the Preventer,Quranic
+الضار,the Afflicter,Quranic
+النافع,the Benefactor,Quranic
+النور,the Light,Quranic
+الهادي,the Guide,Quranic
+البديع,the Incomparable,Quranic
+الباقي,the Everlasting,Quranic
+الوارث,the Inheritor,Quranic
+الرشيد,the Guide to the Right Path,Quranic
+الصبور,the Patient,Quranic
+رب,Lord,Quranic
+
 
 
