@@ -3,6 +3,8 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import os
+import csv
+import sqlite3
 
 # Import my custom modules
 from database.db_manager import DatabaseManager
@@ -392,8 +394,7 @@ if __name__ == '__main__':
     print("Arabic Learning App - Starting...")
     print("=" * 50)
     
-    # Initialize sample data
-    initialize_sample_data()
+    initialize_vocabulary_data()
     
     print("\n✓ Application ready!")
     print("➜ Open your browser and go to: http://127.0.0.1:5000")
