@@ -4,7 +4,6 @@ import sqlite3
 from typing import Optional
 
 class User:
-    # Represents a user with secure authentication.
     
     def __init__(self, user_id: int, username: str):
         # Initialize user object with ID and username.
@@ -15,7 +14,6 @@ class User:
         self._total_points = 0
         self._longest_streak = 0
     
-    # Getters provide read-only access to private attributes
     @property
     def user_id(self) -> int:
         #Returns user ID#
