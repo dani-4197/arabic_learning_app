@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block title %}My Flashcard Sets - Arabic Learning App{% endblock %}
+
+{% block content %}
+<div class="container" style="padding: 30px;">
+    <h1 style="color: #2c3e50; margin-bottom: 30px;">My Flashcard Sets</h1>
+    
+    {% if sets %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px;">
+            {% for set in sets %}
+            <div style="border: 1px solid #e0e0e0; border-radius: 10px; padding: 25px; background: white; box-shadow: 0 3px 10px rgba(0,0,0,0.08); transition: transform 0.2s, box-shadow 0.2s;">
+                <h3 style="margin-top: 0; color: #2c3e50; font-size: 20px; margin-bottom: 15px;">
+                    {{ set.set_name }}
+                </h3>
+                <div style="margin: 10px 0; padding: 10px 0; border-top: 1px solid #ecf0f1;">
+                    <p style="margin: 8px 0; color: #555;">
+                        <strong style="color: #3498db;">Total Cards:</strong> 
+                        <span style="font-size: 18px;">{{ set.card_count }}</span>
+                    </p>
+                    <p style="margin: 8px 0; color: #555;">
+                        <strong style="color: #27ae60;">Mastered:</strong> 
+                        <span style="font-size: 18px;">{{ set.mastered_count }}</span>
+                    </p>
+                    {% if set.card_count > 0 %}
+                    <p style="margin: 8px 0; color: #555;">
+                        <strong>Progress:</strong> 
+                        <span style="font-size: 16px;">{{ ((set.mastered_count / set.card_count) * 100)|round(1) }}%</span>
+                    </p>
+                    {% endif %}
+                </div>
+                <p style="color: #95a5a6; font-size: 13px; margin-top: 15px; padding-top: 10px; border-top: 1px solid #ecf0f1;">
+                    Created: {{ set.creation_date }}
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div style="text-align: center; padding: 60px 20px; background: #f8f9fa; border-radius: 10px; margin-top: 40px;">
+            <p style="color: #7f8c8d; font-size: 18px; margin-bottom: 20px;">
+                📚 No flashcard sets yet
+            </p>
+            <p style="color: #95a5a6; margin-bottom: 25px;">
+                Start reviewing to create your first set!
+            </p>
+            <a href="{{ url_for('dashboard') }}" style="display: inline-block; padding: 12px 25px; background: #3498db; color: white; text-decoration: none; border-radius: 6px; font-size: 16px;">
+                Go to Dashboard
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

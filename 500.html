@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block title %}Server Error - Arabic Learning App{% endblock %}
+
+{% block content %}
+<div style="text-align: center; padding: 50px; margin-top: 50px;">
+    <h1 style="font-size: 72px; color: #e74c3c; margin-bottom: 20px;">500</h1>
+    <h2 style="color: #2c3e50; margin-bottom: 15px;">Server Error</h2>
+    <p style="color: #7f8c8d; font-size: 18px; margin-bottom: 30px;">
+        Sorry, something went wrong on our end. Please try again later.
+    </p>
+    <a href="{{ url_for('dashboard') }}" style="display: inline-block; padding: 12px 30px; background: #3498db; color: white; text-decoration: none; border-radius: 5px; font-size: 16px; transition: background 0.3s;">
+        Go to Dashboard
+    </a>
+</div>
+{% endblock %}

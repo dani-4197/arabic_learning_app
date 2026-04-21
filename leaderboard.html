@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Leaderboard - Arabic Learning App{% endblock %}
+
+{% block content %}
+<div class="leaderboard-container">
+    <div class="leaderboard-header">
+        <h1>🏆 Leaderboard</h1>
+        <p class="subtitle">Top learners this month</p>
+    </div>
+
+    <!-- User's Rank Card -->
+    {% if user_rank %}
+    <div class="user-rank-card">
+        <h3>Your Ranking</h3>
+        <div class="rank-display">
+            <div class="rank-number">#{{ user_rank.rank }}</div>
+            <div class="rank-info">
+                <p><strong>{{ user_rank.username }}</strong></p>
+                <p>{{ user_rank.total_points }} points</p>
+                <p>{{ user_rank.current_streak }} day streak</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Top 10 List -->
+    <div class="leaderboard-list">
+        <h3>Top 10 Users</h3>
+        <table class="leaderboard-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>User</th>
+                    <th>Points</th>
+                    <th>Streak</th>
+                    <th>Longest Streak</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in top_users %}
+                <tr class="{% if user.user_id == current_user.user.user_id %}highlight{% endif %}">
+                    <td class="rank-cell">
+                        {% if user.rank == 1 %}🥇
+                        {% elif user.rank == 2 %}🥈
+                        {% elif user.rank == 3 %}🥉
+                        {% else %}{{ user.rank }}
+                        {% endif %}
+                    </td>
+                    <td class="username-cell">{{ user.username }}</td>
+                    <td class="points-cell">{{ user.total_points }}</td>
+                    <td class="streak-cell">{{ user.current_streak }} 🔥</td>
+                    <td class="longest-cell">{{ user.longest_streak }} days</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="leaderboard-footer">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}
