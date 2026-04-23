@@ -165,6 +165,31 @@ def logout():
     flash('You have been logged out', 'info')
     return redirect(url_for('login'))
 
+@app.route('/delete_account', methods=['POST'])
+@login_required
+def delete_account():
+    user_id = current_user.user.user_id
+
+    try:
+        conn = db_manager.get_connection()
+        cursor = conn.cursor()
+
+        # Deleting from UserAccount cascades to User, Flashcard, FlashcardSet
+        cursor.execute('DELETE FROM UserAccount WHERE UserID = ?', (user_id,))
+        conn.commit()
+
+        logout_user()
+        flash('Your account has been permanently deleted.', 'info')
+        return redirect(url_for('login'))
+
+    except Exception as e:
+        flash('An error occurred while deleting your account.', 'error')
+        print(f"Delete account error: {e}")
+        return redirect(url_for('dashboard'))
+
+    finally:
+        conn.close()
+        
 @app.route('/dashboard')
 @login_required
 def dashboard():
