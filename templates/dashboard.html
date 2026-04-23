@@ -105,14 +105,17 @@
             </div>
         </div>
     </div>
-
-    <form method="POST" action="/delete_account" 
-          onsubmit="return confirm('Are you sure? This will permanently delete your account and all your flashcards.')">
-        <button type="submit" 
-                style="background-color: #dc2626; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;">
-            Delete My Account
-        </button>
-    </form>
     {% endif %}
+    
+    <!-- Delete Account -->
+    <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
+        <form method="POST" action="/delete_account"
+              onsubmit="return confirm('Are you sure? This will permanently delete your account and all your flashcards.')">
+            <button type="submit"
+                    style="background-color: #dc2626; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;">
+                Delete My Account
+            </button>
+        </form>
+    </div>
 </div>
 {% endblock %}
