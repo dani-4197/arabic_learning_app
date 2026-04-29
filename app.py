@@ -434,7 +434,7 @@ def initialize_vocabulary_data():
         
         # Insert vocabulary into database
         cursor.executemany('''
-            INSERT INTO VocabularyWord (ArabicTerm, EnglishTranslation, Category)
+            INSERT OR IGNORE INTO VocabularyWord (ArabicTerm, EnglishTranslation, Category)
             VALUES (?, ?, ?)
         ''', vocab_list)
         
