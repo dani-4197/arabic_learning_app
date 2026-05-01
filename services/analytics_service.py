@@ -3,42 +3,34 @@ from typing import Dict, List, Optional, Tuple
 import sqlite3
 
 class AnalyticsService:
-    """
-    Handles analytics and progress tracking for users.
-    Provides metrics for dashboard display and progress monitoring.
-    """
+    # Calculates and retrieves all the statistics shown on the dashboard, keeping this separate from the route means the dashboard template never has to have any SQL or calculation logic.
     
     def __init__(self, db_manager):
-        # Initialize analytics service.
         self.db_manager = db_manager
     
     def get_user_statistics(self, user_id: int) -> Dict:
-        # Retrieves comprehensive statistics for a user.
         try:
             conn = self.db_manager.get_connection()
             cursor = conn.cursor()
             
-            # Total cards
             cursor.execute('''
                 SELECT COUNT(*) FROM Flashcard WHERE UserID = ?
             ''', (user_id,))
             total_cards = cursor.fetchone()[0]
             
-            # Cards due today
             cursor.execute('''
                 SELECT COUNT(*) FROM Flashcard 
                 WHERE UserID = ? AND date(NextReviewDate) <= date('now')
             ''', (user_id,))
             cards_due = cursor.fetchone()[0]
             
-            # Mastered cards (Box 5)
             cursor.execute('''
                 SELECT COUNT(*) FROM Flashcard 
                 WHERE UserID = ? AND IsMastered = 1
             ''', (user_id,))
             mastered_cards = cursor.fetchone()[0]
             
-            # Cards by box level
+            # GROUP BY BoxLevel gives a count per box in a single query rather than running five separate COUNT queries, one per box level.
             cursor.execute('''
                 SELECT BoxLevel, COUNT(*) as count
                 FROM Flashcard
@@ -51,7 +43,7 @@ class AnalyticsService:
             for row in cursor.fetchall():
                 box_distribution[f'box_{row[0]}'] = row[1]
             
-            # Average recall percentage
+            # Normalise each card's weighted score into a 0-100 range and average across all reviewed cards to get a single recall percentage, cards with TotalReviews = 0 are excluded so they don't drag the average down for users who are just starting out
             cursor.execute('''
                 SELECT WeightedScore, TotalReviews
                 FROM Flashcard
@@ -63,15 +55,14 @@ class AnalyticsService:
             for row in cursor.fetchall():
                 weighted_score = row[0]
                 reviews = row[1]
-                # Normalize each card's score
                 normalized = weighted_score + (reviews * 2)
                 max_possible = reviews * 4
                 total_weighted += normalized
                 total_reviews += max_possible
             
+            # Guard against division by zero for users who haven't reviewed anything yet.
             avg_recall = (total_weighted / total_reviews * 100) if total_reviews > 0 else 0
             
-            # User preferences
             cursor.execute('''
                 SELECT CurrentStreak, TotalPoints, DailyCardGoal, LongestStreak
                 FROM User WHERE UserID = ?
@@ -98,7 +89,7 @@ class AnalyticsService:
             conn.close()
     
     def get_weekly_forecast(self, user_id: int, days: int = 7) -> List[Dict]:
-        # Forecasts cards due for the next N days.
+        # Loops through the next N days and counts how many cards are scheduled for each one, so the dashboard can show the user their upcoming workload.
         try:
             conn = self.db_manager.get_connection()
             cursor = conn.cursor()
@@ -131,16 +122,11 @@ class AnalyticsService:
             conn.close()
     
     def update_user_streak(self, user_id: int) -> bool:
-        """
-        Updates user's study streak based on review activity.
-        Streak increments if user reviewed cards today.
-        Streak resets to 0 if user didn't review yesterday.
-        """
+        # Checks review activity for today and yesterday to decide whether to increment the streak or start a new one, streak resets to 1 (not 0) on the first review after a break - current session counts as day one of the new streak.
         try:
             conn = self.db_manager.get_connection()
             cursor = conn.cursor()
             
-            # Check if user reviewed any cards today
             cursor.execute('''
                 SELECT COUNT(*) FROM Flashcard
                 WHERE UserID = ? AND date(LastReviewed) = date('now')
@@ -149,9 +135,8 @@ class AnalyticsService:
             reviewed_today = cursor.fetchone()[0] > 0
             
             if not reviewed_today:
-                return False  # No activity today, don't update
+                return False
             
-            # Check if user reviewed yesterday
             cursor.execute('''
                 SELECT COUNT(*) FROM Flashcard
                 WHERE UserID = ? AND date(LastReviewed) = date('now', '-1 day')
@@ -159,7 +144,6 @@ class AnalyticsService:
             
             reviewed_yesterday = cursor.fetchone()[0] > 0
             
-            # Get current streak
             cursor.execute('''
                 SELECT CurrentStreak, LongestStreak
                 FROM User WHERE UserID = ?
@@ -169,13 +153,9 @@ class AnalyticsService:
             current_streak = result[0] if result else 0
             longest_streak = result[1] if result else 0
             
-            # Update streak
-            if reviewed_yesterday:
-                new_streak = current_streak + 1
-            else:
-                new_streak = 1  # Start new streak
+            new_streak = current_streak + 1 if reviewed_yesterday else 1
             
-            # Update longest if necessary
+            # max() here avoids a separate conditional - longest_streak updates automatically whenever the current streak exceeds it.
             new_longest = max(longest_streak, new_streak)
             
             cursor.execute('''
@@ -196,7 +176,7 @@ class AnalyticsService:
             conn.close()
     
     def calculate_weighted_progress(self, user_id: int) -> float:
-        # Calculates overall weighted progress percentage for user.
+        # Aggregates WeightedScore and TotalReviews across all of the user's cards in a single query, then applies the same normalisation formula used in Flashcard.calculate_recall_percentage to get a single overall progress figure for the whole account.
         try:
             conn = self.db_manager.get_connection()
             cursor = conn.cursor()
@@ -208,15 +188,16 @@ class AnalyticsService:
             ''', (user_id,))
             
             result = cursor.fetchone()
+            # SUM returns None when there are no rows, so default to 0 rather than letting the arithmetic fail.
             total_weighted = result[0] if result[0] else 0
-            total_reviews = result[1] if result[1] else 0
+            total_reviews  = result[1] if result[1] else 0
             
             if total_reviews == 0:
                 return 0.0
-            
-            # Normalize score (worst possible = 0%, best possible = 100%)
-            normalized_score = total_weighted + (total_reviews * 2)
-            max_normalized = total_reviews * 4
+
+            # Normalizes the weighted score to a percentage
+            normalized_score = total_weighted + (total_reviews * 2) 
+            max_normalized   = total_reviews * 4
             
             percentage = (normalized_score / max_normalized) * 100
             return round(percentage, 2)
