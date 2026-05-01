@@ -1,6 +1,4 @@
-// Arabic Learning App - Main JavaScript File
-
-// Auto-hide flash messages after 5 seconds
+// Auto-hide flash messages after 5 seconds with a fade-out first - nested setTimeout gives the CSS opacity transition time to play before the element is actually removed from the display
 document.addEventListener('DOMContentLoaded', function() {
     const flashMessages = document.querySelectorAll('.flash');
     flashMessages.forEach(flash => {
@@ -22,7 +20,7 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     });
 });
 
-// Dashboard chart animations
+// Animate the box distribution bars on the dashboard by resetting their width to 0 and then restoring it, which triggers the CSS transition; the staggered delay (index * 100ms) makes the bars fill in one after another rather than all at once, which makes the progress feel more dynamic and just overall more fun to watch the animation.
 function animateProgressBars() {
     const bars = document.querySelectorAll('.box-bar');
     bars.forEach((bar, index) => {
@@ -34,7 +32,7 @@ function animateProgressBars() {
     });
 }
 
-// Call on dashboard load
+// Only run on pages that actually have a box distribution section
 if (document.querySelector('.box-distribution')) {
     animateProgressBars();
 }
@@ -51,19 +49,20 @@ function showKeyboardShortcuts() {
     }
 }
 
-// Form validation helper
+// Checks a password string against the three required rules and returns which ones pass - used by updatePasswordStrength
 function validatePasswordStrength(password) {
     const requirements = {
-        length: password.length >= 8,
+        length:    password.length >= 8,
         uppercase: /[A-Z]/.test(password),
-        number: /[0-9]/.test(password)
+        number:    /[0-9]/.test(password)
     };
     return requirements;
 }
 
-// Display password strength indicator
+// Attaches a live listener to a password input field that updates an indicator element with a Strength: N/3 score as the user types.
+// Note: needs to be called with the correct element IDs and those elements need to exist in the HTML for it to have any effect.
 function updatePasswordStrength(inputId, indicatorId) {
-    const input = document.getElementById(inputId);
+    const input     = document.getElementById(inputId);
     const indicator = document.getElementById(indicatorId);
     
     if (input && indicator) {
@@ -72,12 +71,13 @@ function updatePasswordStrength(inputId, indicatorId) {
             const passed = Object.values(strength).filter(Boolean).length;
             
             indicator.textContent = `Strength: ${passed}/3`;
+            // Swap the CSS class so the indicator colour changes with the score - 'strong', 'medium', and 'weak' need corresponding styles in the CSS.
             indicator.className = passed === 3 ? 'strong' : passed === 2 ? 'medium' : 'weak';
         });
     }
 }
 
-// Local storage for user preferences
+// Thin wrapper around localStorage that namespaces all keys with 'arabic_app_' to avoid clashing with anything else that might be using localStorage on the same origin.
 const UserPreferences = {
     save: function(key, value) {
         localStorage.setItem('arabic_app_' + key, JSON.stringify(value));
@@ -93,7 +93,7 @@ const UserPreferences = {
     }
 };
 
-// Tooltip functionality
+// Positions a tooltip div relative to the triggering element using getBoundingClientRect(), then removes it on mouseleave; the tooltip text comes from the element's data-tooltip attribute so no JavaScript changes needed to add a new tooltip - just adding attribute to the HTML element.
 function initTooltips() {
     const tooltips = document.querySelectorAll('[data-tooltip]');
     tooltips.forEach(element => {
@@ -104,7 +104,7 @@ function initTooltips() {
             document.body.appendChild(tooltip);
             
             const rect = this.getBoundingClientRect();
-            tooltip.style.top = rect.top - tooltip.offsetHeight - 5 + 'px';
+            tooltip.style.top  = rect.top - tooltip.offsetHeight - 5 + 'px';
             tooltip.style.left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2) + 'px';
         });
         
@@ -115,12 +115,12 @@ function initTooltips() {
     });
 }
 
-// Progress tracking for review sessions
+// Tracks timing and scores for the current review session so session statistics can be calculated at the end without storing anything server-side.
 class ReviewSessionTracker {
     constructor() {
-        this.startTime = Date.now();
+        this.startTime     = Date.now();
         this.cardsReviewed = 0;
-        this.scores = [];
+        this.scores        = [];
     }
     
     addScore(score) {
@@ -130,23 +130,25 @@ class ReviewSessionTracker {
     
     getAverageScore() {
         if (this.scores.length === 0) return 0;
+        // reduce() sums all scores, then divide by count to get the mean.
         return this.scores.reduce((a, b) => a + b, 0) / this.scores.length;
     }
     
     getDuration() {
+        // Converts milliseconds to whole seconds
         return Math.floor((Date.now() - this.startTime) / 1000);
     }
     
     getStats() {
         return {
-            duration: this.getDuration(),
+            duration:      this.getDuration(),
             cardsReviewed: this.cardsReviewed,
-            averageScore: this.getAverageScore()
+            averageScore:  this.getAverageScore()
         };
     }
 }
 
-// Initialize on specific pages
+// Attach the tracker to the window object so any other script on the review page can call window.sessionTracker.addScore() after each card is rated.
 if (document.querySelector('.review-container')) {
     window.sessionTracker = new ReviewSessionTracker();
 }
