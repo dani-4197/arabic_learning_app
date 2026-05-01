@@ -3,35 +3,25 @@ from datetime import datetime
 from typing import Optional, List, Tuple, Dict, Any
 
 class DatabaseManager:
-    """
-    Manages all database operations
-    """
+    # Single point of contact for all database operations, every service and model goes through this instead of opening their own connections, which keeps the connection logic in one place.
     
     def __init__(self, db_path='database/arabic_learning.db'):
-        """
-        Initialize database manager and create tables if they don't exist
-        """
         self.db_path = db_path
         self.create_tables()
     
     def get_connection(self) -> sqlite3.Connection:
-        """
-        Create and return a database connection with foreign keys enabled.
-        """
         conn = sqlite3.connect(self.db_path)
-        conn.execute("PRAGMA foreign_keys = ON")  # This enables foreign key constraints
+        # Foreign key enforcement is off by default in SQLite and has to be switched on per connection. Doing it here means every connection automatically respects the ON DELETE CASCADE rules defined in the schema.
+        conn.execute("PRAGMA foreign_keys = ON")
         return conn
     
     def create_tables(self):
-        """
-        Creates all necessary tables with proper foreign key constraints
-        Uses defensive programming to handle existing tables
-        """
+        # CREATE TABLE IF NOT EXISTS means this is safe to call every time the app starts — it only creates the table if it doesn't already exist, so existing data is never overwritten on restart.
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
             
-            # UserAccount table - stores authentication credentials
+            # Credentials live in a separate table from progress data so that authentication logic doesn't have to touch the User table and vice versa.
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS UserAccount (
                     UserID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,7 +32,7 @@ class DatabaseManager:
                 )
             ''')
             
-            # User table - stores user preferences and progress
+            # ON DELETE CASCADE means deleting a UserAccount automatically removes the User row too — no orphaned rows left behind.
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS User (
                     UserID INTEGER PRIMARY KEY,
@@ -55,7 +45,7 @@ class DatabaseManager:
                 )
             ''')
             
-            # VocabularyWord table - master vocabulary list
+            # CHECK constraint on Category enforces that only the defined vocabulary categories can be inserted — the database itself rejects anything else so the app doesn't need to duplicate that validation in Python.
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS VocabularyWord (
                     WordID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,7 +57,6 @@ class DatabaseManager:
                 )
             ''')
             
-            # FlashcardSet table - user-created or system sets
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS FlashcardSet (
                     SetID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,7 +67,7 @@ class DatabaseManager:
                 )
             ''')
             
-            # Flashcard table - junction table with SRS progress
+            # UNIQUE(UserID, WordID, SetID) prevents the same word appearing twice in the same set for the same user — duplicate cards would skew the SRS scheduling and confuse the review queue.
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS Flashcard (
                     CardID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,7 +87,7 @@ class DatabaseManager:
                 )
             ''')
             
-            # Create indexes for performance optimization
+            # These indexes speed up the two queries that run most often: fetching due cards by user+date, and looking up cards within a set.
             cursor.execute('''
                 CREATE INDEX IF NOT EXISTS idx_flashcard_user_review
                 ON Flashcard(UserID, NextReviewDate)
@@ -124,9 +113,7 @@ class DatabaseManager:
             conn.close()
     
     def execute_query(self, query: str, params: tuple = ()) -> Optional[List[Tuple]]:
-        """
-        Execute a SELECT query and return results.
-        """
+        # Generic SELECT wrapper — the ? placeholders in the query string are filled in by SQLite itself rather than by string formatting, which prevents SQL injection regardless of what's in params.
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
@@ -140,9 +127,7 @@ class DatabaseManager:
             conn.close()
     
     def execute_update(self, query: str, params: tuple = ()) -> bool:
-        """
-        Execute an INSERT, UPDATE, or DELETE query.
-        """
+        # Wraps INSERT/UPDATE/DELETE with automatic commit and rollback. Returning a bool instead of raising exceptions means the calling code can handle failures with a simple if-check rather than try/except.
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
@@ -157,9 +142,7 @@ class DatabaseManager:
             conn.close()
     
     def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
-        """
-        Retrieve user account information by username.
-        """
+        # Returns a named dictionary rather than a raw tuple so the caller can access fields by name (e.g. result['salt']) instead of by position, which is much less fragile if the column order ever changes.
         query = '''
             SELECT UserID, Username, PasswordHash, Salt
             FROM UserAccount
