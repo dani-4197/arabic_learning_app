@@ -3,22 +3,17 @@ from typing import List, Dict, Optional
 import sqlite3
 
 class NotificationService:
-    """
-    Manages notification generation and scheduling for users.
-    Handles daily reminders and achievement notifications.
-    """
+    # Generates notification messages and checks whether reminders are due
+    # Post-testing note: this produces the notification data but doesn't actively send push notifications (would have needed a background scheduler)
     
     def __init__(self, db_manager):
-        # Initialize notification service.
         self.db_manager = db_manager
     
     def check_daily_reminder(self, user_id: int) -> Optional[Dict]:
-        # Checks if user should receive daily reminder based on their notification time.
         try:
             conn = self.db_manager.get_connection()
             cursor = conn.cursor()
             
-            # Get user's notification preference
             cursor.execute('''
                 SELECT NotificationTime FROM User WHERE UserID = ?
             ''', (user_id,))
@@ -30,9 +25,8 @@ class NotificationService:
             notification_time = result[0]
             current_time = datetime.now().strftime('%H:%M')
             
-            # Check if current time is equal to notification time
+            # Simple string comparison works here because both values are formatted as 'HH:MM' so no datetime parsing needed.
             if notification_time == current_time:
-                # Get cards due today
                 cursor.execute('''
                     SELECT COUNT(*) FROM Flashcard
                     WHERE UserID = ? AND date(NextReviewDate) <= date('now')
@@ -55,11 +49,10 @@ class NotificationService:
             conn.close()
     
     def generate_completion_notification(self, user_id: int, session_stats: Dict) -> Dict:
-        # Generates notification after completing review session.
+        # Compares the number of cards reviewed against the user's daily goal to decide whether to send a congratulations message or a progress update.
         cards_reviewed = session_stats.get('cards_reviewed', 0)
-        points_earned = session_stats.get('points_earned', 0)
+        points_earned  = session_stats.get('points_earned', 0)
         
-        # Checks if user met their daily goal
         try:
             conn = self.db_manager.get_connection()
             cursor = conn.cursor()
@@ -95,7 +88,7 @@ class NotificationService:
             conn.close()
     
     def check_streak_milestone(self, user_id: int) -> Optional[Dict]:
-        # Checks if user reached a streak milestone.
+        # Only fires on specific streak values so the user gets a milestone message at meaningful points (one week, month, year) rather than every single day
         try:
             conn = self.db_manager.get_connection()
             cursor = conn.cursor()
@@ -109,10 +102,9 @@ class NotificationService:
                 return None
             
             streak = result[0]
-            milestones = [7, 14, 30, 60, 100, , 200, 365]
+            milestones = [7, 14, 30, 60, 100, 200, 365]
             
             if streak in milestones:
-                # Generates milestone message (e.g. 2 weeks, 1 month, 1 year)
                 return {
                     'type': 'streak_milestone',
                     'message': f'🔥 Amazing! You reached a {streak}-day streak!',
@@ -128,7 +120,6 @@ class NotificationService:
             conn.close()
     
     def check_mastery_achievement(self, user_id: int) -> Optional[Dict]:
-        # Checks if user reached mastery milestones.
         try:
             conn = self.db_manager.get_connection()
             cursor = conn.cursor()
@@ -156,10 +147,12 @@ class NotificationService:
             conn.close()
     
     def get_encouragement_message(self, user_id: int) -> str:
-        # Generates encouraging message based on user progress.
+        # Picks a message based on where the user currently is in their learning - different messages for brand new users, users mid-way through, and users who have nearly mastered their whole set.
+        try:
             conn = self.db_manager.get_connection()
             cursor = conn.cursor()
-            # Get user stats
+
+            # LEFT JOIN here so users with no flashcards still return a row with NULL counts rather than no row at all - avoids the 'if not result' branch returning a generic message for the wrong reason.
             cursor.execute('''
                 SELECT 
                     u.CurrentStreak,
@@ -177,7 +170,6 @@ class NotificationService:
             
             streak, total_cards, mastered = result
             
-            # Generate feedback message
             if streak == 0:
                 return "Start your learning journey today! 🚀"
             elif streak < 7:
@@ -204,7 +196,7 @@ class NotificationService:
             conn.close()
     
     def schedule_reminder(self, user_id: int, reminder_time: str) -> bool:
-        # Updates user's reminder notification time.
+        # Validate the time format before writing to the database - splitting on ':' and casting to int catches anything that isn't a properly formatted time string
         try:
             hours, minutes = map(int, reminder_time.split(':'))
             if not (0 <= hours < 24 and 0 <= minutes < 60):
@@ -236,12 +228,13 @@ class NotificationService:
             conn.close()
     
     def get_all_due_reminders(self) -> List[Dict]:
-        # Gets all users who should receive reminders at current time.
+        # Matches all users whose NotificationTime equals the current minute - intended to be called by a scheduler once per minute so reminders fire at the right time without polling more often than necessary
         current_time = datetime.now().strftime('%H:%M')
         try:
             conn = self.db_manager.get_connection()
             cursor = conn.cursor()
             
+            # HAVING cards_due > 0 filters out users whose reminder time matches but who have nothing due — no point sending an empty reminder.
             cursor.execute('''
                 SELECT 
                     u.UserID,
