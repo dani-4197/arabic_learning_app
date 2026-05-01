@@ -7,7 +7,7 @@ class VocabularyCache:
         self._word_cache: Dict[int, 'VocabularyWord'] = {}
     
     def add_word(self, word_id: int, word_obj: 'VocabularyWord') -> None:
-        # Reject anything that isn't a non-negative integer up front — word IDs come from the database so this should always be fine, but catching it here means bad data fails loudly rather than silently storing something unusable.
+        # Reject anything that isn't a non-negative integer up front - word IDs come from the database so this should always be fine, but catching it here means bad data fails loudly rather than silently storing something unusable.
         if not isinstance(word_id, int) or word_id < 0:
             raise ValueError("word_id must be non-negative integer")
         self._word_cache[word_id] = word_obj
@@ -17,7 +17,7 @@ class VocabularyCache:
         return self._word_cache.get(word_id, None)
     
     def remove_word(self, word_id: int) -> None:
-        # Checks before deleting so calling remove on a missing ID is a no-op rather than an exception — the caller doesn't have to worry about whether the word was there in the first place.
+        # Checks before deleting so calling remove on a missing ID is a no-op rather than an exception - the caller doesn't have to worry about whether the word was there in the first place.
         if word_id in self._word_cache:
             del self._word_cache[word_id]
     
