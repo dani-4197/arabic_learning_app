@@ -6,7 +6,6 @@ import os
 import csv
 import sqlite3
 
-# Import my custom modules
 from database.db_manager import DatabaseManager
 from models.user import User
 from models.flashcard import Flashcard
@@ -15,27 +14,26 @@ from services.flashcard_service import FlashcardService, ReviewQueue
 from services.analytics_service import AnalyticsService
 from services.leaderboard_service import LeaderboardService
 
-# Initialize Flask app
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret-key-change-this-in-production'
+# Keep the session alive for 7 days so users don't get logged out every time they close the browser
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
-# Initialize database and services
-db_manager = DatabaseManager()
-flashcard_service = FlashcardService(db_manager)
-analytics_service = AnalyticsService(db_manager)
+# Create one shared instance of each service at startup so they're reused across every request rather than reconstructed each time
+db_manager         = DatabaseManager()
+flashcard_service  = FlashcardService(db_manager)
+analytics_service  = AnalyticsService(db_manager)
 leaderboard_service = LeaderboardService(db_manager)
 
-# Initialize vocabulary cache
 vocab_cache = VocabularyCache()
 
-# Flask login setup
 login_manager = LoginManager()
 login_manager.init_app(app)
+# Tells Flask-Login which route to redirect to when @login_required fires.
 login_manager.login_view = 'login'
 
 class UserLogin:
-    # Wrapper class for Flask-Login compatibility
+    # Flask-Login expects a specific interface (is_authenticated, get_id etc.) that User model doesn't implement directly, this wrapper bridges the two so we can use our own User class without modifying it to inherit from Flask-Login's UserMixin.
     def __init__(self, user):
         self.user = user
     
@@ -53,7 +51,7 @@ class UserLogin:
 
 @login_manager.user_loader
 def load_user(user_id):
-    # Load user for Flask-Login
+    # Flask-Login calls this on every request that needs the current user, receives the ID stored in the session cookie and must return the corresponding UserLogin object, or None if the user no longer exists.
     try:
         conn = db_manager.get_connection()
         cursor = conn.cursor()
@@ -77,18 +75,14 @@ def load_user(user_id):
 
 @app.route('/')
 def index():
-    # Home page - redirects to dashboard if logged in, otherwise to login
+    # Landing page just redirects - authenticated users go straight to the dashboard, everyone else goes to login.
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """
-    User login page and handler
-    GET: Display login form
-    POST: Process login credentials
-    """
+    # GET: render the login form, POST: validate credentials and start the session.
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
     
@@ -100,16 +94,18 @@ def login():
             flash('Please enter both username and password', 'error')
             return render_template('login.html')
         
-        # Validate credentials
         user = User.validate_login(db_manager, username, password)
         
         if user:
-            # Successful login
             user_login = UserLogin(user)
+            # remember=True stores a persistent cookie so the session survives
+            # the browser being closed, rather than expiring on close.
             login_user(user_login, remember=True)
             flash(f'Welcome back, {username}!', 'success')
             
-            # Redirect to next page or dashboard
+            # If the user was redirected to login from a protected page,
+            # send them back there after a successful login instead of always
+            # landing on the dashboard.
             next_page = request.args.get('next')
             return redirect(next_page or url_for('dashboard'))
         else:
@@ -119,20 +115,15 @@ def login():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    """
-    User registration page and handler
-    GET: Display registration form
-    POST: Process new user registration
-    """
+    # GET: render registration form, POST: create account and redirect to login
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
     
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
+        username         = request.form.get('username', '').strip()
+        password         = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
         
-        # Validation
         if not username or not password:
             flash('Username and password are required', 'error')
             return render_template('login.html')
@@ -142,7 +133,6 @@ def register():
             return render_template('login.html')
         
         try:
-            # Attempt registration
             user = User.register(db_manager, username, password)
             
             if user:
@@ -150,8 +140,10 @@ def register():
                 return redirect(url_for('login'))
         
         except ValueError as e:
+            # ValueError comes from our own validation in User.register, so safe to show the message directly to the user.
             flash(str(e), 'error')
         except Exception as e:
+            # Anything else is an unexpected server error - show a generic message instead of exposing internal details.
             flash('An error occurred during registration', 'error')
             print(f"Registration error: {e}")
     
@@ -160,7 +152,6 @@ def register():
 @app.route('/logout')
 @login_required
 def logout():
-    # Log out current user
     logout_user()
     flash('You have been logged out', 'info')
     return redirect(url_for('login'))
@@ -168,13 +159,13 @@ def logout():
 @app.route('/delete_account', methods=['POST'])
 @login_required
 def delete_account():
+    # POST-only so the account can't be deleted by visiting a URL accidentally, the ON DELETE CASCADE on UserAccount means deleting this one row automatically removes all the user's data from every other table.
     user_id = current_user.user.user_id
 
     try:
         conn = db_manager.get_connection()
         cursor = conn.cursor()
 
-        # Deleting from UserAccount cascades to User, Flashcard, FlashcardSet
         cursor.execute('DELETE FROM UserAccount WHERE UserID = ?', (user_id,))
         conn.commit()
 
@@ -193,16 +184,11 @@ def delete_account():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    # Main dashboard showing user statistics and due cards.
     user_id = current_user.user.user_id
     
-    # Get user statistics
-    stats = analytics_service.get_user_statistics(user_id)
-    
-    # Get weekly forecast
-    forecast = analytics_service.get_weekly_forecast(user_id, days=7)
-    
-    # Get user's rank
+    # All three calls run separate queries but they're lightweight enough that combining them into one query would make the code harder to read for minimal performance gain at this scale.
+    stats     = analytics_service.get_user_statistics(user_id)
+    forecast  = analytics_service.get_weekly_forecast(user_id, days=7)
     rank_info = leaderboard_service.get_user_rank(user_id)
     
     return render_template('dashboard.html', 
@@ -213,17 +199,12 @@ def dashboard():
 @app.route('/review')
 @login_required
 def review():
-    """
-    Flashcard review session page.
-    Gets cards due for review and presents them to user.
-    """
+    # Loads the cards due today, capped at the user's daily goal and passes them to the review template.
     user_id = current_user.user.user_id
     
-    # Get user's daily goal
-    stats = analytics_service.get_user_statistics(user_id)
+    stats      = analytics_service.get_user_statistics(user_id)
     daily_goal = stats.get('daily_goal', 20)
     
-    # Get due cards (limited by daily goal)
     due_cards = flashcard_service.get_due_cards(user_id, limit=daily_goal)
     
     if not due_cards:
@@ -235,10 +216,10 @@ def review():
 @app.route('/api/review_card', methods=['POST'])
 @login_required
 def review_card():
-    # API endpoint to process card review.
-    data = request.get_json()
+    # JSON API endpoint called by the review page's JavaScript after each card is rated - returns JSON so the frontend can update the UI without a page reload.
+    data    = request.get_json()
     card_id = data.get('card_id')
-    score = data.get('score')
+    score   = data.get('score')
     
     if not card_id or not score:
         return jsonify({'success': False, 'error': 'Missing card_id or score'}), 400
@@ -246,14 +227,12 @@ def review_card():
     if score not in [1, 2, 3, 4]:
         return jsonify({'success': False, 'error': 'Invalid score'}), 400
     
-    # Update card
     success = flashcard_service.update_card_after_review(card_id, score)
     
     if success:
-        # Award points based on score
-        points_earned = score * 10  # 10, 20, 30, or 40 points
-        
-        # Update user points and streak
+        # Points scale with score so easier ratings feel more rewarding - 10 for Forgot up to 40 for Perfect.
+        points_earned = score * 10
+
         user_id = current_user.user.user_id
         current_user.user.add_points(points_earned)
         current_user.user.update_streak(db_manager)
@@ -270,15 +249,9 @@ def review_card():
 @app.route('/leaderboard')
 @login_required
 def leaderboard():
-    """
-    Leaderboard page showing top users.
-    Uses mergesort algorithm for O(n log n) sorting.
-    """
-    # Get top 10 users
     top_users = leaderboard_service.get_ranked_leaderboard(limit=10)
     
-    # Get current user's rank
-    user_id = current_user.user.user_id
+    user_id   = current_user.user.user_id
     user_rank = leaderboard_service.get_user_rank(user_id)
     
     return render_template('leaderboard.html', 
@@ -288,16 +261,13 @@ def leaderboard():
 @app.route('/sets')
 @login_required
 def sets():
-    """
-    Page showing user's flashcard sets.
-    """
     user_id = current_user.user.user_id
     
     try:
-        conn = db_manager.get_connection()
+        conn   = db_manager.get_connection()
         cursor = conn.cursor()
         
-        # Get all sets for this user
+        # LEFT JOIN means sets with no cards still appear in the list with a count of 0, rather than being hidden. CASE WHEN inside SUM() counts only the mastered cards without needing a second query.
         cursor.execute('''
             SELECT 
                 s.SetID,
@@ -315,10 +285,10 @@ def sets():
         sets_data = []
         for row in cursor.fetchall():
             sets_data.append({
-                'set_id': row[0],
-                'set_name': row[1],
-                'creation_date': row[2],
-                'card_count': row[3],
+                'set_id':         row[0],
+                'set_name':       row[1],
+                'creation_date':  row[2],
+                'card_count':     row[3],
                 'mastered_count': row[4]
             })
         
@@ -334,14 +304,13 @@ def sets():
 @app.route('/create_test_cards')
 @login_required
 def create_test_cards():
-    """Creates 20 test flashcards for demonstration and testing"""
+    # Creates 20 test flashcards for demonstration and testing
     user_id = current_user.user.user_id
     
     try:
-        conn = db_manager.get_connection()
+        conn   = db_manager.get_connection()
         cursor = conn.cursor()
         
-        # Get first 20 vocabulary words
         cursor.execute('SELECT WordID FROM VocabularyWord LIMIT 20')
         words = cursor.fetchall()
         
@@ -349,7 +318,6 @@ def create_test_cards():
             flash('No vocabulary words found in database!', 'error')
             return redirect(url_for('dashboard'))
         
-        # Get the Basic Arabic set
         cursor.execute('''
             SELECT SetID FROM FlashcardSet 
             WHERE SetName = 'Basic Arabic Vocabulary'
@@ -358,7 +326,6 @@ def create_test_cards():
         set_result = cursor.fetchone()
         set_id = set_result[0] if set_result else 1
         
-        # Create flashcards
         cards_created = 0
         for word in words:
             if flashcard_service.create_flashcard(user_id, word[0], set_id):
@@ -378,7 +345,6 @@ def create_test_cards():
     finally:
         conn.close()
 
-# Error handlers
 @app.errorhandler(404)
 def not_found(e):
     return render_template('404.html'), 404
@@ -388,40 +354,31 @@ def server_error(e):
     return render_template('500.html'), 500
 
 def initialize_vocabulary_data():
-    """
-    Loads vocabulary data from CSV file into database.
-    Only runs if VocabularyWord table is empty.
-    """
+    # Loads vocabulary from the CSV file into the database on first run, the early COUNT check means this is a no-op on subsequent startups - the data is never re-imported if it's already there
     try:
-        conn = db_manager.get_connection()
+        conn   = db_manager.get_connection()
         cursor = conn.cursor()
         
-        # Check if we already have vocabulary
         cursor.execute('SELECT COUNT(*) FROM VocabularyWord')
         if cursor.fetchone()[0] > 0:
             print("✓ Vocabulary data already exists")
             return
         
-        # Construct path to CSV file
         csv_path = os.path.join('data', 'arabic_vocabulary.csv')
         
-        # Check if CSV file exists
         if not os.path.exists(csv_path):
             print(f"Warning: Vocabulary file not found at {csv_path}")
             return
         
-        # Read vocabulary from CSV
         vocab_list = []
         with open(csv_path, 'r', encoding='utf-8') as csv_file:
             csv_reader = csv.DictReader(csv_file)
             
             for row in csv_reader:
-                # Validate that all required fields are present
                 if not row.get('arabic_term') or not row.get('english_translation') or not row.get('category'):
                     print(f"Skipping invalid row: {row}")
                     continue
                 
-                # Add to list with no whitespace
                 vocab_list.append((
                     row['arabic_term'].strip(),
                     row['english_translation'].strip(),
@@ -432,13 +389,14 @@ def initialize_vocabulary_data():
             print("✗ No valid vocabulary entries found in CSV file")
             return
         
-        # Insert vocabulary into database
+        # executemany inserts all rows in one batch rather than looping with individual execute() calls, significantly faster for 900+ row
+        # Post-testing note: INSERT OR IGNORE skips any duplicate ArabicTerm values without failing the whole import if a word already exists, changed from just INSERT OR
         cursor.executemany('''
             INSERT OR IGNORE INTO VocabularyWord (ArabicTerm, EnglishTranslation, Category)
             VALUES (?, ?, ?)
         ''', vocab_list)
         
-        # Create a default "Basic Arabic" set
+        # UserID = NULL marks this as a system set available to all users, not owned by any specific account.
         cursor.execute('''
             INSERT INTO FlashcardSet (UserID, SetName)
             VALUES (NULL, 'Basic Arabic Vocabulary')
@@ -472,5 +430,4 @@ if __name__ == '__main__':
     print("➜ Open your browser and go to: http://127.0.0.1:5000")
     print("=" * 50)
     
-    # Run the Flask app
     app.run(debug=True, host='0.0.0.0', port=5000)
