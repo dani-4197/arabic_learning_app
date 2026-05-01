@@ -15,7 +15,7 @@ from services.analytics_service import AnalyticsService
 from services.leaderboard_service import LeaderboardService
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret-key-change-this-in-production'
+app.config['SECRET_KEY'] = 'secret-key-0987654321'
 # Keep the session alive for 7 days so users don't get logged out every time they close the browser
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
@@ -98,14 +98,11 @@ def login():
         
         if user:
             user_login = UserLogin(user)
-            # remember=True stores a persistent cookie so the session survives
-            # the browser being closed, rather than expiring on close.
+            # remember=True stores a persistent cookie so the session survives the browser being closed, rather than expiring on close.
             login_user(user_login, remember=True)
             flash(f'Welcome back, {username}!', 'success')
             
-            # If the user was redirected to login from a protected page,
-            # send them back there after a successful login instead of always
-            # landing on the dashboard.
+            # If the user was redirected to login from a protected page, send them back there after a successful login instead of always landing on the dashboard.
             next_page = request.args.get('next')
             return redirect(next_page or url_for('dashboard'))
         else:
@@ -120,8 +117,8 @@ def register():
         return redirect(url_for('dashboard'))
     
     if request.method == 'POST':
-        username         = request.form.get('username', '').strip()
-        password         = request.form.get('password', '')
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
         
         if not username or not password:
@@ -202,7 +199,7 @@ def review():
     # Loads the cards due today, capped at the user's daily goal and passes them to the review template.
     user_id = current_user.user.user_id
     
-    stats      = analytics_service.get_user_statistics(user_id)
+    stats = analytics_service.get_user_statistics(user_id)
     daily_goal = stats.get('daily_goal', 20)
     
     due_cards = flashcard_service.get_due_cards(user_id, limit=daily_goal)
@@ -217,9 +214,9 @@ def review():
 @login_required
 def review_card():
     # JSON API endpoint called by the review page's JavaScript after each card is rated - returns JSON so the frontend can update the UI without a page reload.
-    data    = request.get_json()
+    data = request.get_json()
     card_id = data.get('card_id')
-    score   = data.get('score')
+    score = data.get('score')
     
     if not card_id or not score:
         return jsonify({'success': False, 'error': 'Missing card_id or score'}), 400
@@ -285,10 +282,10 @@ def sets():
         sets_data = []
         for row in cursor.fetchall():
             sets_data.append({
-                'set_id':         row[0],
-                'set_name':       row[1],
-                'creation_date':  row[2],
-                'card_count':     row[3],
+                'set_id': row[0],
+                'set_name': row[1],
+                'creation_date': row[2],
+                'card_count': row[3],
                 'mastered_count': row[4]
             })
         
