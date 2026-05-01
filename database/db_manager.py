@@ -16,7 +16,7 @@ class DatabaseManager:
         return conn
     
     def create_tables(self):
-        # CREATE TABLE IF NOT EXISTS means this is safe to call every time the app starts — it only creates the table if it doesn't already exist, so existing data is never overwritten on restart.
+        # CREATE TABLE IF NOT EXISTS means this is safe to call every time the app starts - it only creates the table if it doesn't already exist, so existing data is never overwritten on restart.
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
@@ -32,7 +32,7 @@ class DatabaseManager:
                 )
             ''')
             
-            # ON DELETE CASCADE means deleting a UserAccount automatically removes the User row too — no orphaned rows left behind.
+            # ON DELETE CASCADE means deleting a UserAccount automatically removes the User row too - no orphaned rows left behind.
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS User (
                     UserID INTEGER PRIMARY KEY,
@@ -45,7 +45,7 @@ class DatabaseManager:
                 )
             ''')
             
-            # CHECK constraint on Category enforces that only the defined vocabulary categories can be inserted — the database itself rejects anything else so the app doesn't need to duplicate that validation in Python.
+            # CHECK constraint on Category enforces that only the defined vocabulary categories can be inserted - the database itself rejects anything else so the app doesn't need to duplicate that validation in Python.
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS VocabularyWord (
                     WordID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,7 +67,7 @@ class DatabaseManager:
                 )
             ''')
             
-            # UNIQUE(UserID, WordID, SetID) prevents the same word appearing twice in the same set for the same user — duplicate cards would skew the SRS scheduling and confuse the review queue.
+            # UNIQUE(UserID, WordID, SetID) prevents the same word appearing twice in the same set for the same user - duplicate cards would skew the SRS scheduling and confuse the review queue.
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS Flashcard (
                     CardID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,7 +113,7 @@ class DatabaseManager:
             conn.close()
     
     def execute_query(self, query: str, params: tuple = ()) -> Optional[List[Tuple]]:
-        # Generic SELECT wrapper — the ? placeholders in the query string are filled in by SQLite itself rather than by string formatting, which prevents SQL injection regardless of what's in params.
+        # Generic SELECT wrapper - the ? placeholders in the query string are filled in by SQLite itself rather than by string formatting, which prevents SQL injection regardless of what's in params.
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
@@ -127,7 +127,7 @@ class DatabaseManager:
             conn.close()
     
     def execute_update(self, query: str, params: tuple = ()) -> bool:
-        # Wraps INSERT/UPDATE/DELETE with automatic commit and rollback. Returning a bool instead of raising exceptions means the calling code can handle failures with a simple if-check rather than try/except.
+        # Wraps INSERT/UPDATE/DELETE with automatic commit and rollback, returning bool instead of raising exceptions means calling code can handle failures with an if-check rather than try/except.
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
