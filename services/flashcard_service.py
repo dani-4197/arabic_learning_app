@@ -4,69 +4,50 @@ from typing import List, Optional, Deque
 import sqlite3
 
 class ReviewQueue:
-    # Queue (FIFO) for managing flashcard review order
+    # Manages the order cards are presented during a review session, its built on collections.deque rather than a regular list because deque is optimised for appending and removing from both ends - popleft() is O(1) on a deque but O(n) on a list, which would slow down every card flip as the queue grew.
     
     def __init__(self):
-        # Initialize queue using deque.
         self._queue: Deque = deque()
     
-    def enqueue(self, card):
-        """
-        Adds card to end of queue.
-        Time complexity: O(1)
-        """
+    def enqueue(self, card) -> None:
         if card is None:
             raise ValueError("Cannot enqueue None")
-        
         self._queue.append(card)
     
     def dequeue(self):
-        """
-        Removes and returns card from front of queue.
-        Time complexity: O(1)
-        """
+        # Return None rather than raising an IndexError on an empty queue - the review page can check for None and end the session cleanly.
         if self.is_empty():
             return None
-        
         return self._queue.popleft()
     
     def peek(self):
-        # Views next card without removing.
+        # Lets the UI check what's coming next without consuming the card.
         if self.is_empty():
             return None
-        
         return self._queue[0]
     
     def is_empty(self) -> bool:
-        # Checks if queue has no elements.
         return len(self._queue) == 0
     
     def size(self) -> int:
-        # Returns number of cards in queue.
         return len(self._queue)
     
     def clear(self) -> None:
-        # Empties the queue.
         self._queue.clear()
 
 
 class FlashcardService:
-    """
-    Business logic for flashcard operations.
-    Handles card creation, updates, and review scheduling.
-    """
+    # Handles all database operations relating to flashcards, it sits between the Flask routes and the database so the route don't have to have any SQL directly.
     
     def __init__(self, db_manager):
-        # Initialize service with database manager.
         self.db_manager = db_manager
     
     def create_flashcard(self, user_id: int, word_id: int, set_id: int) -> bool:
         try:
-            # Creates a new flashcard for a user.
             conn = self.db_manager.get_connection()
             cursor = conn.cursor()
             
-            # Check if card already exists for this user/word/set combo
+            # Check for an existing card before inserting - the UNIQUE constraint on (UserID, WordID, SetID) would catch this too, but checking first lets us return False cleanly instead of catching an IntegrityError.
             cursor.execute('''
                 SELECT CardID FROM Flashcard
                 WHERE UserID = ? AND WordID = ? AND SetID = ?
@@ -76,7 +57,6 @@ class FlashcardService:
                 print("Card already exists for this user")
                 return False
             
-            # Create new flashcard with default values
             cursor.execute('''
                 INSERT INTO Flashcard 
                 (UserID, WordID, SetID, BoxLevel, NextReviewDate, WeightedScore, TotalReviews)
@@ -95,12 +75,11 @@ class FlashcardService:
             conn.close()
     
     def get_due_cards(self, user_id: int, limit: Optional[int] = None) -> List:
-        # Retrieves all flashcards due for review today.
         try:
             conn = self.db_manager.get_connection()
             cursor = conn.cursor()
             
-            # Get all cards where next review date is today or earlier
+            # date(NextReviewDate) <= date('now') captures everything scheduled for today or any earlier day the user missed — so catching up is handled automatically without any extra logic. ORDER BY BoxLevel ASC prioritises lower-box cards so struggling words always come up before easy ones in the same session.
             query = '''
                 SELECT 
                     f.CardID, f.UserID, f.WordID, f.SetID,
@@ -118,7 +97,7 @@ class FlashcardService:
             cursor.execute(query, (user_id,))
             results = cursor.fetchall()
             
-            # Convert to list of dictionaries
+            # Convert tuples to named dictionaries so templates can reference fields by name rather than index — much safer if the column order ever shifts.
             cards = []
             for row in results:
                 cards.append({
@@ -144,8 +123,6 @@ class FlashcardService:
             conn.close()
     
     def update_card_after_review(self, card_id: int, score: int) -> bool:
-        # Updates flashcard after user reviews it.
-        # Validate score
         if score not in [1, 2, 3, 4]:
             print(f"Invalid score: {score}")
             return False
@@ -154,7 +131,6 @@ class FlashcardService:
             conn = self.db_manager.get_connection()
             cursor = conn.cursor()
             
-            # Get current card state
             cursor.execute('''
                 SELECT BoxLevel, WeightedScore, TotalReviews
                 FROM Flashcard WHERE CardID = ?
@@ -167,26 +143,24 @@ class FlashcardService:
             
             current_box, weighted_score, total_reviews = result
             
-            # Calculate new box level (Leitner algorithm)
+            # Mirror the same promotion logic from Flashcard.update_leitner_box but applied directly via SQL so we don't need to instantiate a Flashcard object just to update a row.
             if score == 1:
-                new_box = 1  # Forgot - reset to box 1
+                new_box = 1
             elif score == 2:
-                new_box = current_box  # Struggled - stay in same box
+                new_box = current_box
             elif score == 3:
-                new_box = min(current_box + 1, 5)  # Good - move up 1
-            else:  # score == 4
-                new_box = min(current_box + 2, 5)  # Perfect - move up 2
+                new_box = min(current_box + 1, 5)
+            else:
+                new_box = min(current_box + 2, 5)
             
-            # Update weighted score
             weights = {1: -2, 2: -1, 3: 1, 4: 2}
             new_weighted_score = weighted_score + weights[score]
             new_total_reviews = total_reviews + 1
             
-            # Calculate next review date based on new box
             intervals = {1: 1, 2: 2, 3: 5, 4: 10, 5: 21}
             interval_days = intervals[new_box]
             
-            # Update database
+            # datetime('now', '+N days') is all handled by SQLite so the next review date is always calculated relative to server time and stored as a consistent format in the database.
             cursor.execute('''
                 UPDATE Flashcard
                 SET BoxLevel = ?,
@@ -211,11 +185,11 @@ class FlashcardService:
             conn.close()
     
     def get_cards_by_set(self, user_id: int, set_id: int) -> List:
-        # Gets all cards in a specific set for a user.
         try:
             conn = self.db_manager.get_connection()
             cursor = conn.cursor()
             
+            # JOIN here pulls the Arabic and English text in the same query so the sets page doesn't need a separate lookup per card.
             cursor.execute('''
                 SELECT 
                     f.CardID, f.BoxLevel, f.TotalReviews, f.IsMastered,
